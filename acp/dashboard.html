@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACP — Agent Control Plane</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#c9d1d9;font-family:'SF Mono','Fira Code','JetBrains Mono',monospace;font-size:13px}
+a{color:#58a6ff;text-decoration:none}
+.wrap{max-width:1400px;margin:0 auto;padding:20px}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid #21262d;margin-bottom:24px}
+header h1{font-size:20px;color:#58a6ff}
+header h1 span{color:#8b949e;font-weight:400;font-size:13px;margin-left:8px}
+.health{display:flex;align-items:center;gap:8px;font-size:12px;color:#8b949e}
+.health .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.dot-ok{background:#3fb950}
+.dot-err{background:#f85149}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
+.card .num{font-size:28px;font-weight:700;color:#c9d1d9}
+.card .label{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.card.warn{border-color:#f0883e}
+.card.warn .num{color:#f0883e}
+.section{background:#161b22;border:1px solid #30363d;border-radius:8px;margin-bottom:16px;overflow:hidden}
+.section-head{padding:12px 16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid #21262d;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.section-head:hover{background:#1c2129}
+.cat-agent{color:#58a6ff}.cat-app{color:#bc8cff}.cat-tool{color:#f0883e}.cat-runtime{color:#58a6ff}.cat-sdk{color:#8b949e}.cat-extension{color:#79c0ff}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:8px 16px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #21262d}
+td{padding:10px 16px;border-bottom:1px solid #161b22;font-size:13px}
+tr:hover td{background:#1c2129}
+tr.unowned td{border-left:3px solid #f0883e}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.b-active{background:#0e3a1e;color:#3fb950}.b-idle{background:#3d2e00;color:#f0883e}.b-stale{background:#3d1418;color:#f85149}.b-unknown{background:#21262d;color:#8b949e}
+.b-failed{background:#3d1418;color:#f85149;font-weight:700}
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:#21262d;color:#8b949e}
+.p-anthropic{background:#1a1520;color:#bc8cff}.p-openai{background:#1a2520;color:#3fb950}.p-google{background:#1a2025;color:#58a6ff}
+.p-xai{background:#202020;color:#c9d1d9}.p-local{background:#1a1a10;color:#f0883e}.p-github{background:#21262d;color:#c9d1d9}
+.p-huggingface{background:#2a2000;color:#f0883e}.p-meta{background:#1a1520;color:#bc8cff}.p-mixed{background:#21262d;color:#8b949e}
+.gaps{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:16px}
+.gaps h3{font-size:13px;color:#f0883e;margin-bottom:12px}
+.gap-item{padding:6px 0;border-bottom:1px solid #21262d;display:flex;justify-content:space-between;font-size:12px}
+.gap-item:last-child{border:none}
+.gap-item .issue{color:#f0883e}.gap-item .rec{color:#8b949e}
+.events-table td{font-size:12px;color:#8b949e}
+.events-table .ev-type{color:#58a6ff}
+.refresh-bar{font-size:11px;color:#484f58;text-align:right;padding:8px 0}
+.empty{text-align:center;padding:60px;color:#484f58;font-size:14px}
+.detail-row td{background:#0d1117;padding:12px 16px 12px 40px;font-size:12px;color:#8b949e}
+.detail-row pre{white-space:pre-wrap;word-break:break-all}
+.count-badge{background:#21262d;color:#8b949e;padding:2px 8px;border-radius:10px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ACP <span>Agent Control Plane</span></h1>
+    <div class="health">
+      <span class="dot dot-err" id="healthDot"></span>
+      <span id="healthText">checking...</span>
+      <span style="margin-left:16px" id="refreshTimer"></span>
+    </div>
+  </header>
+
+  <div class="cards" id="cards"></div>
+  <div class="gaps" id="gaps" style="display:none"><h3>Governance Gaps</h3><div id="gapList"></div></div>
+  <div id="tables"></div>
+  <div class="section" id="eventsSection" style="display:none">
+    <div class="section-head" onclick="toggleEvents()">
+      <span>Recent Audit Events</span><span class="count-badge" id="evCount">0</span>
+    </div>
+    <div id="eventsBody" style="display:none"></div>
+  </div>
+  <div class="refresh-bar">Auto-refresh in <span id="countdown">30</span>s</div>
+</div>
+
+<script>
+const CAT_ORDER = ['agent','app','tool','runtime','sdk','extension'];
+const CAT_LABELS = {agent:'Agents',app:'Apps',tool:'Tools',runtime:'Runtimes',sdk:'SDKs',extension:'Extensions'};
+const CAT_CLASS = {agent:'cat-agent',app:'cat-app',tool:'cat-tool',runtime:'cat-runtime',sdk:'cat-sdk',extension:'cat-extension'};
+let countdown = 30;
+let eventsVisible = false;
+
+async function load() {
+  try {
+    const [hRes, aRes, eRes] = await Promise.all([
+      fetch('/health'), fetch('/v1/agents'), fetch('/v1/audit-events?limit=20')
+    ]);
+    const health = await hRes.json();
+    const agents = await aRes.json();
+    const events = await eRes.json();
+    document.getElementById('healthDot').className = 'dot ' + (health.status === 'ok' ? 'dot-ok' : 'dot-err');
+    document.getElementById('healthText').textContent = health.status === 'ok' ? `v${health.version} healthy` : 'unhealthy';
+    renderCards(agents);
+    renderGaps(agents);
+    renderTables(agents);
+    renderEvents(events);
+  } catch(e) {
+    document.getElementById('healthDot').className = 'dot dot-err';
+    document.getElementById('healthText').textContent = 'API unreachable';
+    document.getElementById('tables').innerHTML = '<div class="empty">Cannot reach ACP API at /v1/agents</div>';
+  }
+}
+
+function renderCards(agents) {
+  const grouped = {};
+  CAT_ORDER.forEach(c => grouped[c] = []);
+  agents.forEach(a => { if(grouped[a.kind]) grouped[a.kind].push(a); else grouped['agent'].push(a); });
+  const unowned = agents.filter(a => !a.owner_user && !a.owner_team).length;
+  const providers = {};
+  agents.forEach(a => { const p = a.provider || 'unknown'; providers[p] = (providers[p]||0)+1; });
+  const topProviders = Object.entries(providers).sort((a,b)=>b[1]-a[1]).slice(0,4);
+
+  let html = `<div class="card"><div class="num">${agents.length}</div><div class="label">Total Entities</div></div>`;
+  CAT_ORDER.forEach(c => {
+    if(grouped[c].length > 0) {
+      html += `<div class="card"><div class="num">${grouped[c].length}</div><div class="label">${CAT_LABELS[c]}</div></div>`;
+    }
+  });
+  html += `<div class="card ${unowned>0?'warn':''}"><div class="num">${unowned}</div><div class="label">Unowned</div></div>`;
+  html += `<div class="card"><div class="num">${topProviders.map(([p,n])=>`${p}:${n}`).join(' ')}</div><div class="label">Providers</div></div>`;
+  document.getElementById('cards').innerHTML = html;
+}
+
+function renderGaps(agents) {
+  const gaps = [];
+  agents.forEach(a => {
+    if(!a.owner_user && !a.owner_team) gaps.push({slug:a.slug, issue:'No owner assigned', rec:'Assign owner or suspend', sev:'warn'});
+    if(a.status === 'stale' || a.status === 'unknown') gaps.push({slug:a.slug, issue:`Status: ${a.status}`, rec:'Check if still needed', sev:'warn'});
+    if(a.risk_profile === 'low' && (a.max_permission_level === 'L3' || a.max_permission_level === 'L4'))
+      gaps.push({slug:a.slug, issue:`${a.max_permission_level} access but risk=low`, rec:'Review permission level', sev:'critical'});
+  });
+  const el = document.getElementById('gaps');
+  if(gaps.length === 0) { el.style.display='none'; return; }
+  el.style.display='block';
+  document.getElementById('gapList').innerHTML = gaps.map(g =>
+    `<div class="gap-item"><span class="issue">${g.sev==='critical'?'● ':'▲ '}${g.slug}: ${g.issue}</span><span class="rec">${g.rec}</span></div>`
+  ).join('');
+}
+
+function renderTables(agents) {
+  if(agents.length === 0) {
+    document.getElementById('tables').innerHTML = '<div class="empty">No agents registered. Run <code>acpctl scan</code> to discover agents.</div>';
+    return;
+  }
+  const grouped = {};
+  CAT_ORDER.forEach(c => grouped[c] = []);
+  agents.forEach(a => { if(grouped[a.kind]) grouped[a.kind].push(a); else grouped['agent'].push(a); });
+
+  let html = '';
+  CAT_ORDER.forEach(cat => {
+    const items = grouped[cat];
+    if(items.length === 0) return;
+    items.sort((a,b) => a.slug.localeCompare(b.slug));
+    html += `<div class="section">
+      <div class="section-head"><span class="${CAT_CLASS[cat]}">${CAT_LABELS[cat]}</span><span class="count-badge">${items.length}</span></div>
+      <table><thead><tr><th>Name</th><th>Provider</th><th>Status</th><th>Owner</th><th>Permission</th><th>Source</th><th>Last Seen</th></tr></thead><tbody>`;
+    items.forEach(a => {
+      const isUnowned = !a.owner_user && !a.owner_team;
+      const owner = a.owner_user || a.owner_team || '<span style="color:#f0883e">unowned</span>';
+      const statusCls = 'b-' + (a.status || 'unknown');
+      const provCls = 'p-' + (a.provider || 'unknown');
+      const lastSeen = a.last_seen_at ? timeAgo(a.last_seen_at) : '—';
+      html += `<tr class="${isUnowned?'unowned':''}" onclick="toggleDetail(this)" style="cursor:pointer">
+        <td><strong>${a.slug}</strong></td>
+        <td><span class="pill ${provCls}">${a.provider||'—'}</span></td>
+        <td><span class="badge ${statusCls}">${a.status}</span></td>
+        <td>${owner}</td>
+        <td>${a.max_permission_level}</td>
+        <td>${a.source}</td>
+        <td>${lastSeen}</td>
+      </tr>
+      <tr class="detail-row" style="display:none"><td colspan="7"><pre>${JSON.stringify({id:a.id,kind:a.kind,risk_profile:a.risk_profile,metadata:a.metadata,model_allowlist:a.model_allowlist,tool_allowlist:a.tool_allowlist,first_seen_at:a.first_seen_at},null,2)}</pre></td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  });
+  document.getElementById('tables').innerHTML = html;
+}
+
+function renderEvents(events) {
+  document.getElementById('evCount').textContent = events.length;
+  if(events.length === 0) { document.getElementById('eventsSection').style.display='none'; return; }
+  document.getElementById('eventsSection').style.display='block';
+  let html = '<table class="events-table"><thead><tr><th>Time</th><th>Type</th><th>Agent</th><th>Hash</th></tr></thead><tbody>';
+  events.forEach(e => {
+    html += `<tr><td>${e.occurred_at ? e.occurred_at.slice(0,19) : '—'}</td><td class="ev-type">${e.event_type}</td><td>${e.agent_id ? e.agent_id.slice(0,8)+'...' : '—'}</td><td>${e.hash_self ? e.hash_self.slice(0,12) : '—'}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('eventsBody').innerHTML = html;
+}
+
+function toggleDetail(row) { const d = row.nextElementSibling; d.style.display = d.style.display==='none'?'table-row':'none'; }
+function toggleEvents() { eventsVisible=!eventsVisible; document.getElementById('eventsBody').style.display=eventsVisible?'block':'none'; }
+
+function timeAgo(iso) {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if(diff < 60) return Math.floor(diff) + 's ago';
+  if(diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if(diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return Math.floor(diff/86400) + 'd ago';
+}
+
+load();
+setInterval(() => { countdown--; document.getElementById('countdown').textContent = countdown; if(countdown <= 0) { countdown=30; load(); } }, 1000);
+</script>
+</body>
+</html>

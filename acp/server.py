@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 
 from . import db
 from .models import (
@@ -35,6 +37,12 @@ app = FastAPI(
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard():
+    html_path = Path(__file__).parent / "dashboard.html"
+    return html_path.read_text()
 
 
 @app.post("/v1/agents/register", response_model=AgentOut)
