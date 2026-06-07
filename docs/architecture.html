@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACP — Agent Control Plane Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1117; color: #c9d1d9; font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace; padding: 40px; }
+  h1 { color: #58a6ff; font-size: 28px; margin-bottom: 8px; }
+  h2 { color: #8b949e; font-size: 14px; font-weight: 400; margin-bottom: 40px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  svg { width: 100%; height: auto; }
+  .phase-label { fill: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; }
+  .phase-line { stroke: #21262d; stroke-width: 1; stroke-dasharray: 4,4; }
+  .box { rx: 8; ry: 8; }
+  .box-agent { fill: #161b22; stroke: #30363d; stroke-width: 1.5; }
+  .box-core { fill: #0d1117; stroke: #58a6ff; stroke-width: 2; }
+  .box-storage { fill: #0d1117; stroke: #f0883e; stroke-width: 2; }
+  .box-output { fill: #0d1117; stroke: #3fb950; stroke-width: 2; }
+  .box-future { fill: #0d1117; stroke: #30363d; stroke-width: 1.5; stroke-dasharray: 6,3; }
+  .label { fill: #c9d1d9; font-size: 13px; font-weight: 600; }
+  .sublabel { fill: #8b949e; font-size: 10px; }
+  .icon { fill: #58a6ff; font-size: 18px; }
+  .icon-orange { fill: #f0883e; }
+  .icon-green { fill: #3fb950; }
+  .icon-dim { fill: #484f58; }
+  .arrow { stroke: #30363d; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+  .arrow-data { stroke: #58a6ff; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-blue); }
+  .arrow-future { stroke: #30363d; stroke-width: 1; fill: none; stroke-dasharray: 4,4; marker-end: url(#arrowhead-dim); }
+  .tag { font-size: 9px; fill: #0d1117; font-weight: 700; }
+  .tag-bg-blue { fill: #1f6feb; rx: 3; ry: 3; }
+  .tag-bg-orange { fill: #9e6a03; rx: 3; ry: 3; }
+  .tag-bg-green { fill: #238636; rx: 3; ry: 3; }
+  .tag-bg-gray { fill: #30363d; rx: 3; ry: 3; }
+  .legend { font-size: 11px; fill: #8b949e; }
+  .mvp-badge { fill: #1f6feb; font-size: 9px; font-weight: 700; }
+  .footer { color: #484f58; font-size: 11px; margin-top: 30px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Agent Control Plane (ACP)</h1>
+<h2>AI Production Governance &mdash; Whole Picture Architecture</h2>
+
+<svg viewBox="0 0 1100 820" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#30363d"/></marker>
+    <marker id="arrowhead-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#58a6ff"/></marker>
+    <marker id="arrowhead-dim" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#484f58"/></marker>
+  </defs>
+
+  <!-- Phase Labels -->
+  <text x="20" y="30" class="phase-label">Agent Layer &mdash; your AI tools</text>
+  <line x1="0" y1="40" x2="1100" y2="40" class="phase-line"/>
+
+  <text x="20" y="210" class="phase-label">Integration Layer &mdash; zero-intrusion hooks</text>
+  <line x1="0" y1="220" x2="1100" y2="220" class="phase-line"/>
+
+  <text x="20" y="350" class="phase-label">ACP Core &mdash; the control plane</text>
+  <line x1="0" y1="360" x2="1100" y2="360" class="phase-line"/>
+
+  <text x="20" y="560" class="phase-label">Storage Layer</text>
+  <line x1="0" y1="570" x2="1100" y2="570" class="phase-line"/>
+
+  <text x="20" y="690" class="phase-label">Output Layer &mdash; what humans see</text>
+  <line x1="0" y1="700" x2="1100" y2="700" class="phase-line"/>
+
+  <!-- ═══════════ AGENT LAYER ═══════════ -->
+  <!-- Claude Code -->
+  <rect x="30" y="60" width="140" height="120" class="box box-agent"/>
+  <text x="100" y="90" text-anchor="middle" class="icon">&#x1F4BB;</text>
+  <text x="100" y="110" text-anchor="middle" class="label">Claude Code</text>
+  <text x="100" y="125" text-anchor="middle" class="sublabel">Anthropic CLI</text>
+  <text x="100" y="140" text-anchor="middle" class="sublabel">hooks / settings.json</text>
+  <rect x="60" y="150" width="80" height="16" class="tag-bg-blue"/><text x="100" y="161" text-anchor="middle" class="tag">WRAPPER</text>
+
+  <!-- Codex -->
+  <rect x="200" y="60" width="140" height="120" class="box box-agent"/>
+  <text x="270" y="90" text-anchor="middle" class="icon">&#x1F527;</text>
+  <text x="270" y="110" text-anchor="middle" class="label">Codex CLI</text>
+  <text x="270" y="125" text-anchor="middle" class="sublabel">OpenAI CLI</text>
+  <text x="270" y="140" text-anchor="middle" class="sublabel">exec / sandbox</text>
+  <rect x="230" y="150" width="80" height="16" class="tag-bg-blue"/><text x="270" y="161" text-anchor="middle" class="tag">WRAPPER</text>
+
+  <!-- Gemini -->
+  <rect x="370" y="60" width="140" height="120" class="box box-agent"/>
+  <text x="440" y="90" text-anchor="middle" class="icon">&#x2728;</text>
+  <text x="440" y="110" text-anchor="middle" class="label">Gemini CLI</text>
+  <text x="440" y="125" text-anchor="middle" class="sublabel">Google CLI</text>
+  <text x="440" y="140" text-anchor="middle" class="sublabel">-p headless</text>
+  <rect x="400" y="150" width="80" height="16" class="tag-bg-blue"/><text x="440" y="161" text-anchor="middle" class="tag">WRAPPER</text>
+
+  <!-- Custom Agents -->
+  <rect x="540" y="60" width="140" height="120" class="box box-agent"/>
+  <text x="610" y="90" text-anchor="middle" class="icon">&#x1F916;</text>
+  <text x="610" y="110" text-anchor="middle" class="label">Custom Agents</text>
+  <text x="610" y="125" text-anchor="middle" class="sublabel">ERIKA / Bots / MCP</text>
+  <text x="610" y="140" text-anchor="middle" class="sublabel">SDK integration</text>
+  <rect x="570" y="150" width="80" height="16" class="tag-bg-orange"/><text x="610" y="161" text-anchor="middle" class="tag">SDK</text>
+
+  <!-- Desktop Apps -->
+  <rect x="710" y="60" width="140" height="120" class="box box-agent"/>
+  <text x="780" y="90" text-anchor="middle" class="icon">&#x1F5A5;</text>
+  <text x="780" y="110" text-anchor="middle" class="label">Desktop Apps</text>
+  <text x="780" y="125" text-anchor="middle" class="sublabel">Claude / ChatGPT</text>
+  <text x="780" y="140" text-anchor="middle" class="sublabel">config scan only</text>
+  <rect x="740" y="150" width="80" height="16" class="tag-bg-gray"/><text x="780" y="161" text-anchor="middle" class="tag">SCAN</text>
+
+  <!-- Shadow AI -->
+  <rect x="880" y="60" width="180" height="120" class="box box-agent" style="stroke: #f85149;"/>
+  <text x="970" y="90" text-anchor="middle" style="fill: #f85149; font-size: 18px;">&#x26A0;</text>
+  <text x="970" y="110" text-anchor="middle" class="label" style="fill: #f85149;">Shadow AI</text>
+  <text x="970" y="125" text-anchor="middle" class="sublabel">Personal subscriptions</text>
+  <text x="970" y="140" text-anchor="middle" class="sublabel">Untracked tools</text>
+  <rect x="930" y="150" width="80" height="16" style="fill: #da3633; rx: 3; ry: 3;"/><text x="970" y="161" text-anchor="middle" class="tag">INVISIBLE</text>
+
+  <!-- ═══════════ INTEGRATION LAYER ═══════════ -->
+  <rect x="80" y="240" width="200" height="80" class="box box-core"/>
+  <text x="180" y="270" text-anchor="middle" class="label">acpctl run</text>
+  <text x="180" y="285" text-anchor="middle" class="sublabel">CLI wrapper (zero intrusion)</text>
+  <text x="180" y="300" text-anchor="middle" class="sublabel">register + heartbeat + report</text>
+  <rect x="105" y="305" width="50" height="14" class="tag-bg-blue"/><text x="130" y="315" text-anchor="middle" class="tag">MVP-1</text>
+
+  <rect x="340" y="240" width="200" height="80" class="box box-core"/>
+  <text x="440" y="270" text-anchor="middle" class="label">acpctl scan</text>
+  <text x="440" y="285" text-anchor="middle" class="sublabel">Auto-discovery</text>
+  <text x="440" y="300" text-anchor="middle" class="sublabel">~/.claude/ ~/.codex/ docker ps</text>
+  <rect x="365" y="305" width="50" height="14" class="tag-bg-orange"/><text x="390" y="315" text-anchor="middle" class="tag">MVP-2</text>
+
+  <rect x="600" y="240" width="200" height="80" class="box box-future"/>
+  <text x="700" y="270" text-anchor="middle" class="label icon-dim">OTel Collector</text>
+  <text x="700" y="285" text-anchor="middle" class="sublabel">GenAI Semantic Conv</text>
+  <text x="700" y="300" text-anchor="middle" class="sublabel">OTLP receiver + mapping</text>
+  <rect x="625" y="305" width="50" height="14" class="tag-bg-gray"/><text x="650" y="315" text-anchor="middle" class="tag">MVP-3</text>
+
+  <rect x="860" y="240" width="200" height="80" class="box box-future"/>
+  <text x="960" y="270" text-anchor="middle" class="label icon-dim">Admission Controller</text>
+  <text x="960" y="285" text-anchor="middle" class="sublabel">Policy enforcement</text>
+  <text x="960" y="300" text-anchor="middle" class="sublabel">Block / Allow / Escalate</text>
+  <rect x="885" y="305" width="55" height="14" class="tag-bg-gray"/><text x="912" y="315" text-anchor="middle" class="tag">FUTURE</text>
+
+  <!-- Arrows from agents to integration -->
+  <path d="M100,180 L100,195 L180,195 L180,240" class="arrow"/>
+  <path d="M270,180 L270,195 L180,195" class="arrow"/>
+  <path d="M440,180 L440,195 L280,195 L280,240" class="arrow"/>
+  <path d="M610,180 L610,240" class="arrow"/>
+  <path d="M780,180 L780,215 L440,215 L440,240" class="arrow"/>
+
+  <!-- ═══════════ ACP CORE ═══════════ -->
+  <rect x="60" y="380" width="980" height="160" class="box box-core" style="stroke-width: 2.5;"/>
+  <text x="550" y="405" text-anchor="middle" class="label" style="font-size: 16px; fill: #58a6ff;">ACP API Server (FastAPI)</text>
+
+  <!-- Core modules inside -->
+  <rect x="90" y="420" width="170" height="100" class="box" style="fill: #161b22; stroke: #388bfd; stroke-width: 1;"/>
+  <text x="175" y="445" text-anchor="middle" style="fill: #58a6ff; font-size: 14px;">&#x1F4D6;</text>
+  <text x="175" y="462" text-anchor="middle" class="label">Registry</text>
+  <text x="175" y="477" text-anchor="middle" class="sublabel">agents + instances</text>
+  <text x="175" y="492" text-anchor="middle" class="sublabel">capabilities + owner</text>
+  <text x="175" y="507" text-anchor="middle" class="sublabel">status + last_seen</text>
+
+  <rect x="280" y="420" width="170" height="100" class="box" style="fill: #161b22; stroke: #388bfd; stroke-width: 1;"/>
+  <text x="365" y="445" text-anchor="middle" style="fill: #58a6ff; font-size: 14px;">&#x1F50D;</text>
+  <text x="365" y="462" text-anchor="middle" class="label">Identity</text>
+  <text x="365" y="477" text-anchor="middle" class="sublabel">slug + fingerprint</text>
+  <text x="365" y="492" text-anchor="middle" class="sublabel">idempotent upsert</text>
+  <text x="365" y="507" text-anchor="middle" class="sublabel">dedup + merge</text>
+
+  <rect x="470" y="420" width="170" height="100" class="box" style="fill: #161b22; stroke: #388bfd; stroke-width: 1;"/>
+  <text x="555" y="445" text-anchor="middle" style="fill: #58a6ff; font-size: 14px;">&#x1F4DC;</text>
+  <text x="555" y="462" text-anchor="middle" class="label">Audit Trail</text>
+  <text x="555" y="477" text-anchor="middle" class="sublabel">append-only events</text>
+  <text x="555" y="492" text-anchor="middle" class="sublabel">hash chain integrity</text>
+  <text x="555" y="507" text-anchor="middle" class="sublabel">no prompt content</text>
+
+  <rect x="660" y="420" width="170" height="100" class="box" style="fill: #161b22; stroke: #388bfd; stroke-width: 1;"/>
+  <text x="745" y="445" text-anchor="middle" style="fill: #f0883e; font-size: 14px;">&#x1F6E1;</text>
+  <text x="745" y="462" text-anchor="middle" class="label">Policy Engine</text>
+  <text x="745" y="477" text-anchor="middle" class="sublabel">L0-L4 permission</text>
+  <text x="745" y="492" text-anchor="middle" class="sublabel">tool allowlist</text>
+  <text x="745" y="507" text-anchor="middle" class="sublabel">risk profile</text>
+
+  <rect x="850" y="420" width="170" height="100" class="box" style="fill: #161b22; stroke: #30363d; stroke-width: 1; stroke-dasharray: 4,3;"/>
+  <text x="935" y="445" text-anchor="middle" class="icon-dim" style="font-size: 14px;">&#x2764;</text>
+  <text x="935" y="462" text-anchor="middle" class="label" style="fill: #484f58;">Health Monitor</text>
+  <text x="935" y="477" text-anchor="middle" class="sublabel">heartbeat tracking</text>
+  <text x="935" y="492" text-anchor="middle" class="sublabel">stale detection</text>
+  <text x="935" y="507" text-anchor="middle" class="sublabel">status reconciliation</text>
+
+  <!-- Arrows from integration to core -->
+  <path d="M180,320 L180,380" class="arrow-data"/>
+  <path d="M440,320 L440,380" class="arrow-data"/>
+  <path d="M700,320 L700,380" class="arrow-future"/>
+  <path d="M960,320 L960,380" class="arrow-future"/>
+
+  <!-- ═══════════ STORAGE LAYER ═══════════ -->
+  <rect x="150" y="590" width="250" height="80" class="box box-storage"/>
+  <text x="275" y="615" text-anchor="middle" class="icon-orange" style="font-size: 14px;">&#x1F4BE;</text>
+  <text x="275" y="635" text-anchor="middle" class="label">PostgreSQL</text>
+  <text x="275" y="652" text-anchor="middle" class="sublabel">agents / instances / capabilities / audit_events</text>
+
+  <rect x="450" y="590" width="250" height="80" class="box box-future"/>
+  <text x="575" y="615" text-anchor="middle" class="icon-dim" style="font-size: 14px;">&#x1F4CA;</text>
+  <text x="575" y="635" text-anchor="middle" class="label" style="fill: #484f58;">OTel Backend</text>
+  <text x="575" y="652" text-anchor="middle" class="sublabel">Tempo / ClickHouse / Datadog</text>
+  <rect x="495" y="657" width="55" height="14" class="tag-bg-gray"/><text x="522" y="667" text-anchor="middle" class="tag">FUTURE</text>
+
+  <!-- Arrow core to storage -->
+  <path d="M400,540 L400,555 L275,555 L275,590" class="arrow-data"/>
+  <path d="M600,540 L600,555 L575,555 L575,590" class="arrow-future"/>
+
+  <!-- ═══════════ OUTPUT LAYER ═══════════ -->
+  <rect x="60" y="720" width="220" height="80" class="box box-output"/>
+  <text x="170" y="748" text-anchor="middle" class="icon-green" style="font-size: 14px;">&#x1F4DF;</text>
+  <text x="170" y="768" text-anchor="middle" class="label">acpctl CLI</text>
+  <text x="170" y="783" text-anchor="middle" class="sublabel">list / audit / scan / gaps</text>
+
+  <rect x="320" y="720" width="220" height="80" class="box box-output"/>
+  <text x="430" y="748" text-anchor="middle" class="icon-green" style="font-size: 14px;">&#x1F310;</text>
+  <text x="430" y="768" text-anchor="middle" class="label">Web Dashboard</text>
+  <text x="430" y="783" text-anchor="middle" class="sublabel">agent list / detail / audit log</text>
+  <rect x="370" y="788" width="50" height="14" class="tag-bg-orange"/><text x="395" y="798" text-anchor="middle" class="tag">MVP-2</text>
+
+  <rect x="580" y="720" width="220" height="80" class="box box-output"/>
+  <text x="690" y="748" text-anchor="middle" class="icon-green" style="font-size: 14px;">&#x1F4CB;</text>
+  <text x="690" y="768" text-anchor="middle" class="label">Coverage Report</text>
+  <text x="690" y="783" text-anchor="middle" class="sublabel">gaps / unowned / stale / risk</text>
+
+  <rect x="840" y="720" width="220" height="80" class="box box-future"/>
+  <text x="950" y="748" text-anchor="middle" class="icon-dim" style="font-size: 14px;">&#x1F514;</text>
+  <text x="950" y="768" text-anchor="middle" class="label" style="fill: #484f58;">Alerts / Webhooks</text>
+  <text x="950" y="783" text-anchor="middle" class="sublabel">Slack / PagerDuty / custom</text>
+  <rect x="900" y="788" width="55" height="14" class="tag-bg-gray"/><text x="927" y="798" text-anchor="middle" class="tag">FUTURE</text>
+
+  <!-- Arrow storage to output -->
+  <path d="M275,670 L275,690 L170,690 L170,720" class="arrow-data"/>
+  <path d="M275,670 L275,690 L430,690 L430,720" class="arrow-data"/>
+  <path d="M275,670 L275,690 L690,690 L690,720" class="arrow-data"/>
+
+  <!-- ═══════════ LEGEND ═══════════ -->
+  <rect x="30" y="60" width="0" height="0"/><!-- spacer -->
+
+</svg>
+
+<!-- Legend below SVG -->
+<div style="display: flex; gap: 30px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <div style="width: 24px; height: 12px; border: 2px solid #58a6ff; border-radius: 3px; background: #0d1117;"></div>
+    <span style="color: #8b949e; font-size: 12px;">MVP-1 (Month 1)</span>
+  </div>
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <div style="width: 24px; height: 12px; border: 2px solid #f0883e; border-radius: 3px; background: #0d1117;"></div>
+    <span style="color: #8b949e; font-size: 12px;">MVP-2 (Month 2)</span>
+  </div>
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <div style="width: 24px; height: 12px; border: 2px dashed #30363d; border-radius: 3px; background: #0d1117;"></div>
+    <span style="color: #8b949e; font-size: 12px;">Future (Month 3+)</span>
+  </div>
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <div style="width: 24px; height: 12px; border: 2px solid #f85149; border-radius: 3px; background: #161b22;"></div>
+    <span style="color: #8b949e; font-size: 12px;">Problem: Shadow AI</span>
+  </div>
+</div>
+
+<div style="margin-top: 30px; padding: 20px; background: #161b22; border: 1px solid #30363d; border-radius: 8px;">
+  <div style="color: #58a6ff; font-size: 14px; font-weight: 600; margin-bottom: 12px;">Key Design Decisions</div>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px;">
+    <div><span style="color: #3fb950;">&#x2713;</span> <strong>Zero intrusion</strong> &mdash; <code>acpctl run</code> wraps agents, agents don't know ACP exists</div>
+    <div><span style="color: #3fb950;">&#x2713;</span> <strong>Metadata only</strong> &mdash; never captures prompt content, only who/when/what-tool</div>
+    <div><span style="color: #3fb950;">&#x2713;</span> <strong>Append-only audit</strong> &mdash; hash-chain integrity, tamper-detectable</div>
+    <div><span style="color: #3fb950;">&#x2713;</span> <strong>Vendor agnostic</strong> &mdash; any AI CLI, any model, any framework</div>
+    <div><span style="color: #3fb950;">&#x2713;</span> <strong>OSS first</strong> &mdash; Apache 2.0, self-hosted, no SaaS dependency</div>
+    <div><span style="color: #3fb950;">&#x2713;</span> <strong>OTel compatible</strong> &mdash; ACP owns governance model, OTel for trace transport</div>
+  </div>
+</div>
+
+<div style="margin-top: 20px; padding: 20px; background: #161b22; border: 1px solid #30363d; border-radius: 8px;">
+  <div style="color: #f0883e; font-size: 14px; font-weight: 600; margin-bottom: 12px;">MVP-1 Scope (Month 1) &mdash; What ships first</div>
+  <div style="font-size: 12px; line-height: 1.8;">
+    <code style="color: #79c0ff;">acpctl register</code> &mdash; Register an agent (idempotent by slug+fingerprint)<br>
+    <code style="color: #79c0ff;">acpctl list</code> &mdash; List all agents with owner, status, last seen<br>
+    <code style="color: #79c0ff;">acpctl run -- &lt;cmd&gt;</code> &mdash; Wrap any CLI agent with auto register+heartbeat+report<br>
+    <code style="color: #79c0ff;">acpctl audit</code> &mdash; View append-only audit event log<br>
+    <code style="color: #79c0ff;">docker compose up</code> &mdash; One command to run API + Postgres
+  </div>
+</div>
+
+<p class="footer">
+  Agent Control Plane &copy; 2026 Maki Chiba &mdash; Apache 2.0<br>
+  "Not the model. Not the agent. The governance."
+</p>
+
+</div>
+</body>
+</html>
