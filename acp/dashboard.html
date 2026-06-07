@@ -76,6 +76,7 @@ tr.unowned td{border-left:3px solid #f0883e}
 </div>
 
 <script>
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 const CAT_ORDER = ['agent','app','tool','runtime','sdk','extension'];
 const CAT_LABELS = {agent:'Agents',app:'Apps',tool:'Tools',runtime:'Runtimes',sdk:'SDKs',extension:'Extensions'};
 const CAT_CLASS = {agent:'cat-agent',app:'cat-app',tool:'cat-tool',runtime:'cat-runtime',sdk:'cat-sdk',extension:'cat-extension'};
@@ -135,7 +136,7 @@ function renderGaps(agents) {
   if(gaps.length === 0) { el.style.display='none'; return; }
   el.style.display='block';
   document.getElementById('gapList').innerHTML = gaps.map(g =>
-    `<div class="gap-item"><span class="issue">${g.sev==='critical'?'● ':'▲ '}${g.slug}: ${g.issue}</span><span class="rec">${g.rec}</span></div>`
+    `<div class="gap-item"><span class="issue">${g.sev==='critical'?'● ':'▲ '}${esc(g.slug)}: ${esc(g.issue)}</span><span class="rec">${esc(g.rec)}</span></div>`
   ).join('');
 }
 
@@ -158,17 +159,18 @@ function renderTables(agents) {
       <table><thead><tr><th>Name</th><th>Provider</th><th>Status</th><th>Owner</th><th>Permission</th><th>Source</th><th>Last Seen</th></tr></thead><tbody>`;
     items.forEach(a => {
       const isUnowned = !a.owner_user && !a.owner_team;
-      const owner = a.owner_user || a.owner_team || '<span style="color:#f0883e">unowned</span>';
-      const statusCls = 'b-' + (a.status || 'unknown');
-      const provCls = 'p-' + (a.provider || 'unknown');
+      const ownerText = a.owner_user || a.owner_team || '';
+      const ownerHtml = ownerText ? esc(ownerText) : '<span style="color:#f0883e">unowned</span>';
+      const statusCls = 'b-' + (a.status || 'unknown').replace(/[^a-z]/g,'');
+      const provCls = 'p-' + (a.provider || 'unknown').replace(/[^a-z]/g,'');
       const lastSeen = a.last_seen_at ? timeAgo(a.last_seen_at) : '—';
       html += `<tr class="${isUnowned?'unowned':''}" onclick="toggleDetail(this)" style="cursor:pointer">
-        <td><strong>${a.slug}</strong></td>
-        <td><span class="pill ${provCls}">${a.provider||'—'}</span></td>
-        <td><span class="badge ${statusCls}">${a.status}</span></td>
-        <td>${owner}</td>
-        <td>${a.max_permission_level}</td>
-        <td>${a.source}</td>
+        <td><strong>${esc(a.slug)}</strong></td>
+        <td><span class="pill ${provCls}">${esc(a.provider||'—')}</span></td>
+        <td><span class="badge ${statusCls}">${esc(a.status)}</span></td>
+        <td>${ownerHtml}</td>
+        <td>${esc(a.max_permission_level)}</td>
+        <td>${esc(a.source)}</td>
         <td>${lastSeen}</td>
       </tr>
       <tr class="detail-row" style="display:none"><td colspan="7"><pre>${JSON.stringify({id:a.id,kind:a.kind,risk_profile:a.risk_profile,metadata:a.metadata,model_allowlist:a.model_allowlist,tool_allowlist:a.tool_allowlist,first_seen_at:a.first_seen_at},null,2)}</pre></td></tr>`;
@@ -184,7 +186,7 @@ function renderEvents(events) {
   document.getElementById('eventsSection').style.display='block';
   let html = '<table class="events-table"><thead><tr><th>Time</th><th>Type</th><th>Agent</th><th>Hash</th></tr></thead><tbody>';
   events.forEach(e => {
-    html += `<tr><td>${e.occurred_at ? e.occurred_at.slice(0,19) : '—'}</td><td class="ev-type">${e.event_type}</td><td>${e.agent_id ? e.agent_id.slice(0,8)+'...' : '—'}</td><td>${e.hash_self ? e.hash_self.slice(0,12) : '—'}</td></tr>`;
+    html += `<tr><td>${e.occurred_at ? esc(e.occurred_at.slice(0,19)) : '—'}</td><td class="ev-type">${esc(e.event_type)}</td><td>${e.agent_id ? esc(e.agent_id.slice(0,8))+'...' : '—'}</td><td>${e.hash_self ? esc(e.hash_self.slice(0,12)) : '—'}</td></tr>`;
   });
   html += '</tbody></table>';
   document.getElementById('eventsBody').innerHTML = html;
