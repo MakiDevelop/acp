@@ -63,6 +63,7 @@ def scan_config_files() -> list[ScanFinding]:
         (home / ".gemini", "gemini-cli", "cli", "google"),
         (home / ".cursor", "cursor", "desktop", "mixed"),
         (home / ".continue", "continue", "desktop", "mixed"),
+        (home / ".grok", "grok-cli", "cli", "xai"),
         (home / ".aider.conf.yml", "aider", "cli", "mixed"),
         (home / ".github-copilot", "github-copilot", "desktop", "mixed"),
     ]
