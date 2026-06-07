@@ -20,8 +20,13 @@ def _dsn() -> str:
 async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(_dsn(), min_size=2, max_size=10)
+        _pool = await asyncpg.create_pool(_dsn(), min_size=2, max_size=10, init=_init_conn)
     return _pool
+
+
+async def _init_conn(conn: asyncpg.Connection):
+    await conn.set_type_codec("jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
+    await conn.set_type_codec("json", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
 
 async def close_pool():
@@ -47,18 +52,18 @@ async def upsert_agent(
     pool = await get_pool()
     now = datetime.now(timezone.utc)
     name = display_name or slug
-    meta = json.dumps(metadata or {})
+    meta = metadata or {}
 
     row = await pool.fetchrow(
         """
         INSERT INTO agents (slug, display_name, kind, provider, source,
                             owner_user, owner_team, first_seen_at, last_seen_at, metadata)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9)
         ON CONFLICT (slug) DO UPDATE SET
             last_seen_at = $8,
             updated_at = $8,
             status = CASE WHEN agents.status = 'unknown' THEN 'active' ELSE agents.status END,
-            metadata = COALESCE(agents.metadata, '{}') || $9::jsonb
+            metadata = COALESCE(agents.metadata, '{}') || $9
         RETURNING *
         """,
         slug, name, kind, provider, source, owner_user, owner_team, now, meta,
@@ -104,13 +109,13 @@ async def record_heartbeat(
 ) -> UUID:
     pool = await get_pool()
     now = datetime.now(timezone.utc)
-    meta = json.dumps(metadata or {})
+    meta = metadata or {}
 
     instance_id = await pool.fetchval(
         """
         INSERT INTO agent_instances (agent_id, host_fingerprint, workspace, session_id,
                                       last_heartbeat_at, metadata)
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT DO NOTHING
         RETURNING id
         """,
@@ -120,7 +125,7 @@ async def record_heartbeat(
     if instance_id is None:
         instance_id = await pool.fetchval(
             """
-            UPDATE agent_instances SET last_heartbeat_at = $1, metadata = metadata || $2::jsonb
+            UPDATE agent_instances SET last_heartbeat_at = $1, metadata = metadata || $2
             WHERE agent_id = $3 AND session_id = $4
             RETURNING id
             """,
@@ -163,11 +168,11 @@ async def append_audit_event(
         """
         INSERT INTO audit_events (agent_id, instance_id, event_type, actor,
                                    occurred_at, hash_prev, hash_self, payload)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
         """,
         agent_id, instance_id, event_type, actor,
-        now, hash_prev, hash_self, json.dumps(payload),
+        now, hash_prev, hash_self, payload,
     )
     return dict(row)
 
@@ -210,11 +215,11 @@ async def save_scan_result(
         INSERT INTO scan_results (scan_id, scanner_type, host_fingerprint,
                                    detected_slug, detected_kind, detected_provider,
                                    evidence, matched_agent_id, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
         """,
         scan_id, scanner_type, host_fingerprint,
         detected_slug, detected_kind, detected_provider,
-        json.dumps(evidence), matched_agent_id, status,
+        evidence, matched_agent_id, status,
     )
     return dict(row)

@@ -22,20 +22,24 @@ class AgentRegister(BaseModel):
 
 
 class AgentOut(BaseModel):
+    model_config = {"from_attributes": True}
+
     id: UUID
     slug: str
     display_name: str
     kind: str
-    provider: str | None
-    owner_user: str | None
-    owner_team: str | None
-    status: str
-    source: str
-    max_permission_level: str
-    risk_profile: str
-    first_seen_at: datetime
-    last_seen_at: datetime
-    metadata: dict
+    provider: str | None = None
+    owner_user: str | None = None
+    owner_team: str | None = None
+    status: str = "unknown"
+    source: str = "manual"
+    max_permission_level: str = "L0"
+    risk_profile: str = "low"
+    first_seen_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    metadata: dict | None = None
+    model_allowlist: list[str] | None = None
+    tool_allowlist: list[str] | None = None
 
 
 class HeartbeatIn(BaseModel):
