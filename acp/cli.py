@@ -35,15 +35,12 @@ def scan():
     """Discover AI agents on this machine without requiring registration."""
     from .scanner import host_fingerprint, scan_all
 
-    console.print("\n[bold blue]Scanning for AI agents...[/]\n")
+    console.print("\n[bold blue]Scanning for AI entities...[/]\n")
     findings = scan_all()
 
     if not findings:
-        console.print("[yellow]No AI agents detected.[/]")
+        console.print("[yellow]No AI entities detected.[/]")
         return
-
-    registered = []
-    unregistered = []
 
     with _client() as client:
         try:
@@ -53,40 +50,59 @@ def scan():
         except httpx.HTTPError:
             known_slugs = set()
 
+    category_order = ["agent", "app", "tool", "runtime", "sdk", "extension"]
+    category_styles = {
+        "agent": ("bold cyan", "AGENTS"),
+        "app": ("bold magenta", "APPS"),
+        "tool": ("bold yellow", "TOOLS"),
+        "runtime": ("bold blue", "RUNTIMES"),
+        "sdk": ("dim", "SDKS"),
+        "extension": ("dim cyan", "EXTENSIONS"),
+    }
+    grouped: dict[str, list] = {}
     for f in findings:
-        if f.slug in known_slugs:
-            registered.append(f)
-        else:
-            unregistered.append(f)
+        grouped.setdefault(f.kind, []).append(f)
 
-    table = Table(title="Scan Results", show_lines=False)
-    table.add_column("Status", style="bold", width=8)
-    table.add_column("Agent", style="cyan")
-    table.add_column("Kind")
-    table.add_column("Provider")
-    table.add_column("Found via")
-    table.add_column("Evidence")
+    total_reg = 0
+    total_unreg = 0
 
-    for f in registered:
-        evidence_str = _short_evidence(f.evidence)
-        table.add_row("✅ REG", f.slug, f.kind, f.provider or "—", f.scanner_type, evidence_str)
+    for cat in category_order:
+        items = grouped.get(cat, [])
+        if not items:
+            continue
+        style, label = category_styles.get(cat, ("", cat.upper()))
+        table = Table(title=f"{label} ({len(items)})", show_lines=False, title_style=style)
+        table.add_column("", width=3)
+        table.add_column("Name", style="cyan", min_width=20)
+        table.add_column("Provider", width=12)
+        table.add_column("Found via", width=14)
+        table.add_column("Evidence")
 
-    for f in unregistered:
-        evidence_str = _short_evidence(f.evidence)
-        table.add_row("⚠️  NEW", f.slug, f.kind, f.provider or "—", f.scanner_type, evidence_str)
+        for f in sorted(items, key=lambda x: x.slug):
+            is_reg = f.slug in known_slugs
+            icon = "✅" if is_reg else "⚠️"
+            if is_reg:
+                total_reg += 1
+            else:
+                total_unreg += 1
+            evidence_str = _short_evidence(f.evidence)
+            table.add_row(icon, f.slug, f.provider or "—", f.scanner_type, evidence_str)
 
-    console.print(table)
+        console.print(table)
+        console.print()
+
     console.print(
-        f"\n[bold]Found {len(findings)} agents: "
-        f"[green]{len(registered)} registered[/], "
-        f"[yellow]{len(unregistered)} unregistered[/][/]\n"
+        f"[bold]Total: {len(findings)} entities | "
+        f"[green]{total_reg} registered[/] | "
+        f"[yellow]{total_unreg} unregistered[/][/]\n"
     )
 
-    if unregistered and known_slugs is not None:
-        if typer.confirm("Register unregistered agents?"):
+    unreg = [f for f in findings if f.slug not in known_slugs]
+    if unreg:
+        if typer.confirm("Register unregistered entities?"):
             fp = host_fingerprint()
             with _client() as client:
-                for f in unregistered:
+                for f in unreg:
                     resp = client.post("/v1/agents/register", json={
                         "slug": f.slug,
                         "kind": f.kind,
